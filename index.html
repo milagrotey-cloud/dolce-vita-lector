@@ -1,0 +1,126 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control de ingreso | Dolce Vita</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fffaf0;
+      color: #344767;
+      text-align: center;
+      padding: 20px;
+    }
+    .contenedor {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 18px;
+    }
+    h1 { color: #d66d73; }
+    #lector { width: 100%; margin: 20px auto; }
+    #resultado {
+      padding: 18px;
+      border-radius: 12px;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    button {
+      background: #d66d73;
+      color: white;
+      border: 0;
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 16px;
+      margin: 8px;
+    }
+    .valido { background: #dff3e4; color: #236b3b; }
+    .error { background: #fbe1e1; color: #a32929; }
+    .usado { background: #fff0cc; color: #875b00; }
+  </style>
+</head>
+<body>
+  <div class="contenedor">
+    <h1>🍋 Picnic & Arte</h1>
+    <h2>Control de ingreso – Dolce Vita</h2>
+    <p>Escaneá el código QR de la entrada.</p>
+    <div id="lector"></div>
+    <div id="resultado">Preparando lector...</div>
+    <button id="iniciar" onclick="iniciarEscaner()">Iniciar cámara</button>
+  </div>
+
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyRv2U0eckaF144xQ8QtOW9kV0zpWHbtaTRD0FvD6HD4UZiWE0N1Btl2teg7WauGO3a/exec";
+
+    let escaner;
+    let procesando = false;
+
+    function mostrar(mensaje, estado) {
+      const caja = document.getElementById("resultado");
+      caja.textContent = mensaje;
+      caja.className = estado || "";
+    }
+
+    function iniciarEscaner() {
+      if (escaner && escaner.isScanning) return;
+
+      procesando = false;
+      mostrar("Activando cámara...", "");
+
+      if (!escaner) {
+        escaner = new Html5Qrcode("lector");
+      }
+
+      escaner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        codigo => {
+          if (procesando) return;
+          procesando = true;
+          escaner.stop().then(() => validarCodigo(codigo));
+        },
+        () => {}
+      ).catch(error => {
+        mostrar("No se pudo iniciar la cámara. Revisá los permisos.", "error");
+        console.error(error);
+      });
+    }
+
+    function validarCodigo(token) {
+      mostrar("Verificando entrada...", "");
+
+      const callback = "respuestaQR_" + Date.now();
+
+      window[callback] = function(respuesta) {
+        delete window[callback];
+
+        mostrar(
+          respuesta.mensaje +
+          (respuesta.nombre ? " | " + respuesta.nombre : "") +
+          (respuesta.actividad ? " | Actividad: " + respuesta.actividad : ""),
+          respuesta.estado
+        );
+
+        document.getElementById("iniciar").textContent = "Escanear otra entrada";
+      };
+
+      const script = document.createElement("script");
+      script.src = WEB_APP_URL +
+        "?action=validar&token=" + encodeURIComponent(token) +
+        "&callback=" + callback;
+
+      script.onerror = function() {
+        delete window[callback];
+        mostrar("No se pudo conectar con el sistema de validación.", "error");
+        document.getElementById("iniciar").textContent = "Intentar nuevamente";
+      };
+
+      document.body.appendChild(script);
+    }
+  </script>
+</body>
+</html>
